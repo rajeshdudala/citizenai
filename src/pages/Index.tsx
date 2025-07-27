@@ -14,6 +14,10 @@ type AuthStep = 'landing' | 'email' | 'verification' | 'loggedIn' | 'contact';
 type Section = 'dashboard' | 'settings' | 'analytics';
 
 const Index = () => {
+  const [contactName, setContactName] = useState('');
+  const [contactPhone, setContactPhone] = useState('');
+  const [contactEmail, setContactEmail] = useState('');
+  const [contactMessage, setContactMessage] = useState(''); 
   const [currentStep, setCurrentStep] = useState<AuthStep>('landing');
   const [currentSection, setCurrentSection] = useState<Section>('dashboard');
   const [email, setEmail] = useState('');
@@ -327,29 +331,50 @@ const Index = () => {
   };
 
   const renderContactStep = () => {
-  const [name, setName] = useState('');
-  const [phone, setPhone] = useState('');
-  const [email, setEmail] = useState('');
-  const [message, setMessage] = useState('');
+  const handleContactSubmit = async () => {
+  if (!contactName || !contactEmail || !contactPhone) {
+    toast({
+      title: "Incomplete Form",
+      description: "Please fill in all required fields.",
+      variant: "destructive"
+    });
+    return;
+  }
 
-  const handleContactSubmit = () => {
-    if (!name || !email || !message) {
-      toast({
-        title: "Incomplete Form",
-        description: "Please fill in all required fields.",
-        variant: "destructive"
+  try {
+    const { error } = await supabase
+      .from('contact_messages')
+      .insert({
+        name: contactName,
+        phone: contactPhone,
+        email: contactEmail,
+        message: contactMessage
       });
-      return;
-    }
 
-    console.log({ name, phone, email, message });
+    if (error) throw error;
+
     toast({
       title: "Submitted",
       description: "Thanks for getting in touch! We'll get back to you shortly.",
     });
 
-    setCurrentStep('landing'); // return to home after submit
-  };
+    // Reset form and go back to landing
+    setContactName('');
+    setContactPhone('');
+    setContactEmail('');
+    setContactMessage('');
+    setCurrentStep('landing');
+
+  } catch (err) {
+    console.error('Submission error:', err);
+    toast({
+      title: "Error",
+      description: "Something went wrong while submitting the form.",
+      variant: "destructive"
+    });
+  }
+};
+
 
   return (
     <div className="relative min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 flex items-center justify-center px-6">
@@ -360,26 +385,26 @@ const Index = () => {
           <div className="space-y-4">
             <Input
               placeholder="Your Name"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
+              value={contactName}
+              onChange={(e) => setContactName(e.target.value)}
             />
             <Input
               placeholder="Phone Number"
-              value={phone}
-              onChange={(e) => setPhone(e.target.value)}
+              value={contactPhone}
+              onChange={(e) => setContactPhone(e.target.value)}
             />
             <Input
               type="email"
               placeholder="Email Address"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
+              value={contactEmail}
+              onChange={(e) => setContactEmail(e.target.value)}
             />
             <textarea
               placeholder="Reason for contact..."
               className="w-full px-4 py-3 rounded-md bg-slate-700/50 text-white placeholder:text-gray-400"
               rows={4}
-              value={message}
-              onChange={(e) => setMessage(e.target.value)}
+              value={contactMessage}
+              onChange={(e) => setContactMessage(e.target.value)}
             ></textarea>
 
             <Button 
@@ -391,7 +416,7 @@ const Index = () => {
           </div>
         </div>
       </div>
-    </div>
+    </div>  
   );
 };
 
