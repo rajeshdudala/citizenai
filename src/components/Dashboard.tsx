@@ -1,7 +1,9 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Phone, PhoneIncoming, PhoneOutgoing, Play, Clock } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { useToast } from '@/hooks/use-toast';
+import { supabase } from '@/integrations/supabase/client';
 
 interface Call {
   id: string;
@@ -11,44 +13,85 @@ interface Call {
   summary?: string;
   transcript?: string;
   actions?: string[];
+  audio_url?: string;
 }
 
-const mockCalls: Call[] = [
-  {
-    id: '1',
-    direction: 'incoming',
-    phoneNumber: '+1 (555) 123-4567',
-    timestamp: '2024-01-27 14:30:00',
-    summary: 'Customer interested in scheduling a consultation for next week.',
-    transcript: 'Hi, I saw your ad online and I\'m interested in your services. Could we schedule a consultation for next week?',
-    actions: ['Sent WhatsApp', 'Booked Appointment']
-  },
-  {
-    id: '2',
-    direction: 'outgoing',
-    phoneNumber: '+1 (555) 987-6543',
-    timestamp: '2024-01-27 13:15:00',
-    summary: 'Follow-up call regarding appointment confirmation.',
-    transcript: 'Hello, this is a follow-up regarding your appointment scheduled for tomorrow at 2 PM.',
-    actions: ['Confirmed Appointment']
-  },
-  {
-    id: '3',
-    direction: 'incoming',
-    phoneNumber: '+1 (555) 555-1234',
-    timestamp: '2024-01-27 11:45:00',
-    summary: 'General inquiry about pricing and services.',
-    transcript: 'I\'m calling to ask about your pricing for the basic package.',
-    actions: ['Sent Email']
-  }
-];
-
-export const Dashboard = () => {
+export const Dashboard = ({ customerConfig }) => {
   const [selectedCall, setSelectedCall] = useState<Call | null>(null);
+  const [calls, setCalls] = useState<Call[]>([]);
+  const { toast } = useToast();
 
   const formatTime = (timestamp: string) => {
     return new Date(timestamp).toLocaleString();
   };
+
+ useEffect(() => {
+  const fetchCallHistory = async () => {
+    if (!customerConfig?.elevenlabs_api_key) return;
+
+    try {
+      const listRes = await fetch("https://api.elevenlabs.io/v1/convai/conversations?limit=10", {
+        headers: {
+          'xi-api-key': customerConfig.elevenlabs_api_key,
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (!listRes.ok) throw new Error(`Conversation list error: ${listRes.status}`);
+      const listData = await listRes.json();
+
+      const details = await Promise.all(
+        listData.conversations.map(async (conv) => {
+          const detailRes = await fetch(`https://api.elevenlabs.io/v1/convai/conversations/${conv.conversation_id}`, {
+            headers: {
+              'xi-api-key': customerConfig.elevenlabs_api_key,
+            },
+          });
+
+          if (!detailRes.ok) return null;
+          const detailData = await detailRes.json();
+
+          // Fetch audio URL if available
+          let audio_url = '';
+          if (detailData.has_audio) {
+            const audioRes = await fetch(`https://api.elevenlabs.io/v1/convai/conversations/${conv.conversation_id}/audio`, {
+              headers: {
+                'xi-api-key': customerConfig.elevenlabs_api_key,
+              },
+            });
+            if (audioRes.ok) {
+              const blob = await audioRes.blob();
+              audio_url = URL.createObjectURL(blob);
+            }
+          }
+
+          return {
+            id: conv.conversation_id,
+            direction: detailData.metadata?.phone_call?.direction || 'incoming',
+            phoneNumber: detailData.metadata?.phone_call?.external_number || 'Unknown',
+            timestamp: new Date(detailData.metadata?.start_time_unix_secs * 1000).toISOString(),
+            summary: detailData.analysis?.transcript_summary || 'No summary available.',
+            transcript: detailData.transcript?.map(t => `${t.role}: ${t.message}`).join('\n') || 'Transcript not available.',
+            actions: detailData.transcript?.filter(t => t.tool_calls?.length).map(() => 'Triggered Tool') || [],
+            audio_url,
+          };
+        })
+      );
+
+      setCalls(details.filter(Boolean));
+    } catch (error) {
+      console.error("Failed to fetch call history:", error);
+      toast({
+        title: "Error Fetching Calls",
+        description: "Could not retrieve call logs from ElevenLabs.",
+        variant: "destructive"
+      });
+    }
+  };
+
+  fetchCallHistory();
+}, [customerConfig]);
+
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 h-full">
@@ -62,7 +105,7 @@ export const Dashboard = () => {
         </CardHeader>
         <CardContent>
           <div className="space-y-3">
-            {mockCalls.map((call) => (
+            {calls.map((call) => (
               <div
                 key={call.id}
                 onClick={() => setSelectedCall(call)}
@@ -101,7 +144,6 @@ export const Dashboard = () => {
         <CardContent>
           {selectedCall ? (
             <div className="space-y-6">
-              {/* Call Info */}
               <div className="flex items-center justify-between">
                 <div>
                   <h3 className="font-semibold text-lg">{selectedCall.phoneNumber}</h3>
@@ -111,26 +153,25 @@ export const Dashboard = () => {
                 </div>
               </div>
 
-              {/* Audio Player */}
-              <div className="bg-muted/30 rounded-lg p-4">
-                <div className="flex items-center gap-3">
-                  <Button size="sm" variant="outline">
-                    <Play className="w-4 h-4" />
-                  </Button>
-                  <div className="flex-1 bg-muted rounded-full h-2">
-                    <div className="bg-primary rounded-full h-2 w-1/3"></div>
-                  </div>
-                  <span className="text-sm text-muted-foreground">2:34</span>
-                </div>
-              </div>
+              {selectedCall.audio_url ? (
+  <div className="bg-muted/30 rounded-lg p-4">
+    <audio controls className="w-full">
+      <source src={selectedCall.audio_url} type="audio/mpeg" />
+      Your browser does not support the audio element.
+    </audio>
+  </div>
+) : (
+  <div className="bg-muted/30 rounded-lg p-4 text-muted-foreground text-sm">
+    No audio available for this call.
+  </div>
+)}
 
-              {/* AI Summary */}
+
               <div>
                 <h4 className="font-semibold mb-2">AI Summary</h4>
                 <p className="text-muted-foreground">{selectedCall.summary}</p>
               </div>
 
-              {/* Actions */}
               {selectedCall.actions && selectedCall.actions.length > 0 && (
                 <div>
                   <h4 className="font-semibold mb-2">Actions Performed</h4>
@@ -147,11 +188,10 @@ export const Dashboard = () => {
                 </div>
               )}
 
-              {/* Transcript */}
               <div>
                 <h4 className="font-semibold mb-2">Full Transcript</h4>
                 <div className="bg-muted/30 rounded-lg p-4">
-                  <p className="text-sm">{selectedCall.transcript}</p>
+                  <p className="text-sm whitespace-pre-line">{selectedCall.transcript}</p>
                 </div>
               </div>
             </div>

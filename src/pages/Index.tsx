@@ -1,5 +1,5 @@
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
@@ -9,6 +9,16 @@ import { Navigation } from "@/components/Navigation";
 import { Dashboard } from "@/components/Dashboard";
 import { Settings } from "@/components/Settings";
 import { Analytics } from "@/components/Analytics";
+
+// Define new type to hold customer config
+interface CustomerConfig {
+  email: string;
+  elevenlabs_api_key: string;
+  ghl_api_key: string;
+  twilio_sid?: string;
+  twilio_token?: string;
+  google_calendar: string;
+}
 
 type AuthStep = 'landing' | 'email' | 'verification' | 'loggedIn' | 'contact';
 type Section = 'dashboard' | 'settings' | 'analytics';
@@ -24,7 +34,29 @@ const Index = () => {
   const [verificationCode, setVerificationCode] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [verificationId, setVerificationId] = useState<string>('');
+  const [customerConfig, setCustomerConfig] = useState<CustomerConfig | null>(null);
   const { toast } = useToast();
+
+  useEffect(() => {
+    const fetchCustomerDetails = async () => {
+      if (!email) return;
+
+      const { data, error } = await supabase
+        .from('customers')
+        .select('*')
+        .eq('email', email)
+        .maybeSingle();
+
+      if (error) {
+        console.error('Customer fetch error:', error);
+        return;
+      }
+
+      setCustomerConfig(data);
+    };
+
+    fetchCustomerDetails();
+  }, [email]);
 
   const generateVerificationCode = () => {
     return Math.floor(100000 + Math.random() * 900000).toString();
@@ -313,22 +345,23 @@ const Index = () => {
     );
   };
 
-  const renderMainApp = () => {
-    return (
-      <div className="min-h-screen bg-background">
-        <Navigation 
-          activeSection={currentSection} 
-          onSectionChange={setCurrentSection} 
-        />
-        
-        <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-          {currentSection === 'dashboard' && <Dashboard />}
-          {currentSection === 'settings' && <Settings />}
-          {currentSection === 'analytics' && <Analytics />}
-        </main>
-      </div>
-    );
-  };
+ const renderMainApp = () => {
+  return (
+    <div className="min-h-screen bg-background">
+      <Navigation 
+        activeSection={currentSection} 
+        onSectionChange={setCurrentSection} 
+      />
+      
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {currentSection === 'dashboard' && <Dashboard customerConfig={customerConfig} />}
+        {currentSection === 'settings' && <Settings />}
+        {currentSection === 'analytics' && <Analytics />}
+      </main>
+    </div>
+  );
+};
+
 
   const renderContactStep = () => {
   const handleContactSubmit = async () => {
