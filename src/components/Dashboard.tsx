@@ -1,15 +1,9 @@
 import { useState, useEffect } from 'react';
-import { Phone, PhoneIncoming, PhoneOutgoing, Play, Clock, Moon, Sun } from 'lucide-react';
+import { Phone, PhoneIncoming, PhoneOutgoing, Play, Clock, Moon, Sun, MessageCircle } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
-import { supabase } from '@/integrations/supabase/client';
-import {
-  Accordion,
-  AccordionContent,
-  AccordionItem,
-  AccordionTrigger,
-} from "@/components/ui/accordion";
 
 interface Call {
   id: string;
@@ -22,21 +16,27 @@ interface Call {
   audio_url?: string;
 }
 
+interface WhatsAppMessage {
+  from: string;
+  wa_id: string;
+  text: string;
+  timestamp: string;
+}
+
 export const Dashboard = ({ customerConfig }) => {
   const [selectedCall, setSelectedCall] = useState<Call | null>(null);
   const [calls, setCalls] = useState<Call[]>([]);
+  const [whatsappMessages, setWhatsappMessages] = useState<WhatsAppMessage[]>([]);
+  const [selectedWaNumber, setSelectedWaNumber] = useState<string | null>(null);
   const { toast } = useToast();
 
   const formatTime = (timestamp: string) => {
-    return new Date(timestamp).toLocaleString();
+    return new Date(+timestamp * 1000).toLocaleString();
   };
 
   const toggleTheme = () => {
     document.documentElement.classList.toggle('dark');
-    localStorage.setItem(
-      'theme',
-      document.documentElement.classList.contains('dark') ? 'dark' : 'light'
-    );
+    localStorage.setItem('theme', document.documentElement.classList.contains('dark') ? 'dark' : 'light');
   };
 
   useEffect(() => {
@@ -51,7 +51,6 @@ export const Dashboard = ({ customerConfig }) => {
   useEffect(() => {
     const fetchCallHistory = async () => {
       if (!customerConfig?.elevenlabs_api_key) return;
-
       try {
         const listRes = await fetch("https://api.elevenlabs.io/v1/convai/conversations?limit=10", {
           headers: {
@@ -59,7 +58,6 @@ export const Dashboard = ({ customerConfig }) => {
             'Content-Type': 'application/json',
           },
         });
-
         if (!listRes.ok) throw new Error(`Conversation list error: ${listRes.status}`);
         const listData = await listRes.json();
 
@@ -70,7 +68,6 @@ export const Dashboard = ({ customerConfig }) => {
                 'xi-api-key': customerConfig.elevenlabs_api_key,
               },
             });
-
             if (!detailRes.ok) return null;
             const detailData = await detailRes.json();
 
@@ -114,151 +111,123 @@ export const Dashboard = ({ customerConfig }) => {
     fetchCallHistory();
   }, [customerConfig]);
 
+  useEffect(() => {
+    const fetchWhatsappMessages = async () => {
+      try {
+        const res = await fetch("https://citizenai-whatsapp.onrender.com/messages");
+        const data = await res.json();
+        setWhatsappMessages(data);
+      } catch (err) {
+        console.error("Error fetching WhatsApp messages", err);
+      }
+    };
+    fetchWhatsappMessages();
+  }, []);
+
+  const unknownWaNumbers = Array.from(new Set(
+    whatsappMessages
+      .map((msg) => msg.wa_id)
+      .filter((wa_id) => !calls.find((call) => call.phoneNumber.includes(wa_id)))
+  ));
+
+  const selectedMessages = whatsappMessages.filter((msg) => msg.wa_id === selectedWaNumber);
+
   return (
-    <>
-      {/* Welcome Header + Theme Toggle */}
-      <div className="flex justify-between items-center px-4 pt-2">
-        <h2 className="text-2xl font-semibold">
-          Welcome back, {customerConfig?.name || 'User'}!
-        </h2>
-        <button
-          onClick={toggleTheme}
-          className="p-2 rounded-full bg-muted hover:bg-muted/70 transition-colors"
-          aria-label="Toggle Theme"
-        >
-          <Sun className="dark:hidden w-5 h-5" />
-          <Moon className="hidden dark:inline w-5 h-5" />
-        </button>
-      </div>
-
-      {/* Layout */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 px-4 pb-6 h-[calc(100vh-120px)]">
-
-        {/* Call History */}
-        <Card className="flex flex-col h-full overflow-hidden">
-          <CardHeader className="sticky top-0 z-10 bg-background">
-            <CardTitle className="flex items-center gap-2">
-              <Phone className="w-5 h-5" />
-              Call History
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="flex-1 overflow-y-auto">
-            <div className="space-y-3">
-              {calls.map((call) => (
-                <div
-                  key={call.id}
-                  onClick={() => setSelectedCall(call)}
-                  className={`p-4 rounded-lg border cursor-pointer transition-colors hover:bg-muted/50 ${
-                    selectedCall?.id === call.id ? 'bg-muted border-primary' : 'bg-background'
-                  }`}
-                >
-                  <div className="flex items-center justify-between mb-2">
-                    <div className="flex items-center gap-2">
-                      {call.direction === 'incoming' ? (
-                        <PhoneIncoming className="w-4 h-4 text-green-500" />
-                      ) : (
-                        <PhoneOutgoing className="w-4 h-4 text-blue-500" />
-                      )}
-                      <span className="font-medium">{call.phoneNumber}</span>
-                    </div>
-                    <span className="text-sm text-muted-foreground capitalize">
-                      {call.direction}
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-1 text-sm text-muted-foreground">
-                    <Clock className="w-3 h-3" />
-                    {formatTime(call.timestamp)}
-                  </div>
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Call Details */}
-        <Card className="flex flex-col h-full overflow-hidden">
-          <CardHeader className="sticky top-0 z-10 bg-background">
-            <CardTitle>Call Details</CardTitle>
-          </CardHeader>
-          <CardContent className="flex-1 overflow-y-auto">
-            {selectedCall ? (
-              <Accordion type="multiple" className="w-full space-y-4">
-                <AccordionItem value="meta">
-                  <AccordionTrigger>Call Info</AccordionTrigger>
-                  <AccordionContent>
-                    <h3 className="font-semibold text-lg mb-1">{selectedCall.phoneNumber}</h3>
-                    <p className="text-muted-foreground capitalize">
-                      {selectedCall.direction} • {formatTime(selectedCall.timestamp)}
-                    </p>
-                  </AccordionContent>
-                </AccordionItem>
-
-                <AccordionItem value="audio">
-                  <AccordionTrigger>Audio Recording</AccordionTrigger>
-                  <AccordionContent>
-                    {selectedCall.audio_url ? (
-                      <div className="space-y-2">
-                        <audio controls className="w-full">
-                          <source src={selectedCall.audio_url} type="audio/mpeg" />
-                          Your browser does not support the audio element.
-                        </audio>
-                        <a
-                          href={selectedCall.audio_url}
-                          download={`call-audio-${selectedCall.id || 'recording'}.mp3`}
-                          className="inline-block text-sm text-primary hover:underline"
-                        >
-                          ⬇️ Download Audio
-                        </a>
-                      </div>
-                    ) : (
-                      <p className="text-muted-foreground text-sm">No audio available for this call.</p>
-                    )}
-                  </AccordionContent>
-                </AccordionItem>
-
-                <AccordionItem value="summary">
-                  <AccordionTrigger>AI Summary</AccordionTrigger>
-                  <AccordionContent>
-                    <p className="text-muted-foreground">{selectedCall.summary}</p>
-                  </AccordionContent>
-                </AccordionItem>
-
-                {selectedCall.actions?.length > 0 && (
-                  <AccordionItem value="actions">
-                    <AccordionTrigger>Actions Performed</AccordionTrigger>
-                    <AccordionContent>
-                      <div className="flex flex-wrap gap-2 mt-2">
-                        {selectedCall.actions.map((action, index) => (
-                          <span
-                            key={index}
-                            className="px-3 py-1 bg-primary/10 text-primary rounded-full text-sm"
-                          >
-                            ✅ {action}
-                          </span>
-                        ))}
-                      </div>
-                    </AccordionContent>
-                  </AccordionItem>
-                )}
-
-                <AccordionItem value="transcript">
-                  <AccordionTrigger>Full Transcript</AccordionTrigger>
-                  <AccordionContent>
-                    <div className="bg-muted/30 rounded-lg p-4 mt-2">
-                      <p className="text-sm whitespace-pre-line">{selectedCall.transcript}</p>
-                    </div>
-                  </AccordionContent>
-                </AccordionItem>
-              </Accordion>
-            ) : (
-              <div className="text-center text-muted-foreground py-12">
-                <Phone className="w-12 h-12 mx-auto mb-4 opacity-50" />
-                <p>Select a call from the list to view details</p>
+    <div className="grid grid-cols-5 grid-rows-2 gap-4 p-4 h-[calc(100vh-100px)]">
+      {/* Call History (40%) */}
+      <Card className="col-span-2 row-span-1 overflow-hidden flex flex-col">
+        <CardHeader>
+          <CardTitle><Phone className="inline-block w-4 h-4 mr-2" /> Call History</CardTitle>
+        </CardHeader>
+        <CardContent className="overflow-y-auto flex-1">
+          {calls.map((call) => (
+            <div
+              key={call.id}
+              onClick={() => setSelectedCall(call)}
+              className={`p-2 border rounded mb-2 cursor-pointer hover:bg-muted/40 ${selectedCall?.id === call.id ? 'bg-muted/50' : ''}`}
+            >
+              <div className="font-medium flex items-center gap-2">
+                {call.direction === 'incoming' ? <PhoneIncoming className="text-green-500 w-4 h-4" /> : <PhoneOutgoing className="text-blue-500 w-4 h-4" />}
+                {call.phoneNumber}
               </div>
-            )}
-          </CardContent>
-        </Card>
-      </div>
-    </>
+              <div className="text-sm text-muted-foreground">{formatTime(call.timestamp)}</div>
+            </div>
+          ))}
+        </CardContent>
+      </Card>
+
+      {/* Call Details (60%) */}
+      <Card className="col-span-3 row-span-1 overflow-hidden flex flex-col">
+        <CardHeader>
+          <CardTitle>Call Details</CardTitle>
+        </CardHeader>
+        <CardContent className="overflow-y-auto flex-1">
+          {selectedCall ? (
+            <Accordion type="multiple">
+              <AccordionItem value="summary">
+                <AccordionTrigger>Summary</AccordionTrigger>
+                <AccordionContent>{selectedCall.summary}</AccordionContent>
+              </AccordionItem>
+              <AccordionItem value="audio">
+                <AccordionTrigger>Audio</AccordionTrigger>
+                <AccordionContent>
+                  {selectedCall.audio_url ? (
+                    <audio controls src={selectedCall.audio_url} className="w-full" />
+                  ) : (
+                    <p className="text-muted-foreground">No audio available</p>
+                  )}
+                </AccordionContent>
+              </AccordionItem>
+              <AccordionItem value="transcript">
+                <AccordionTrigger>Transcript</AccordionTrigger>
+                <AccordionContent>
+                  <pre className="whitespace-pre-wrap text-sm">{selectedCall.transcript}</pre>
+                </AccordionContent>
+              </AccordionItem>
+            </Accordion>
+          ) : (
+            <p className="text-muted-foreground">Select a call to view details</p>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* WhatsApp Messages (Unknown) - 40% */}
+      <Card className="col-span-2 row-span-1 overflow-hidden flex flex-col">
+        <CardHeader>
+          <CardTitle><MessageCircle className="inline-block w-4 h-4 mr-2" /> Incoming WhatsApp</CardTitle>
+        </CardHeader>
+        <CardContent className="overflow-y-auto flex-1">
+          {unknownWaNumbers.map((wa) => (
+            <div
+              key={wa}
+              onClick={() => setSelectedWaNumber(wa)}
+              className={`p-2 border rounded mb-2 cursor-pointer hover:bg-muted/40 ${selectedWaNumber === wa ? 'bg-muted/50' : ''}`}
+            >
+              {wa}
+            </div>
+          ))}
+        </CardContent>
+      </Card>
+
+      {/* WhatsApp Message Details - 60% */}
+      <Card className="col-span-3 row-span-1 overflow-hidden flex flex-col">
+        <CardHeader>
+          <CardTitle>Message Details</CardTitle>
+        </CardHeader>
+        <CardContent className="overflow-y-auto flex-1">
+          {selectedMessages.length ? (
+            selectedMessages.map((msg, index) => (
+              <div key={index} className="mb-3 p-2 border rounded">
+                <div className="text-sm font-semibold">{msg.from}:</div>
+                <div className="text-sm text-muted-foreground">{msg.text}</div>
+                <div className="text-xs text-gray-400">{formatTime(msg.timestamp)}</div>
+              </div>
+            ))
+          ) : (
+            <p className="text-muted-foreground">Select a number to view messages</p>
+          )}
+        </CardContent>
+      </Card>
+    </div>
   );
 };

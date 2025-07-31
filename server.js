@@ -9,10 +9,13 @@ const PORT = process.env.PORT || 3001;
 app.use(cors());
 app.use(bodyParser.json());
 
-// WhatsApp Webhook Verification (GET)
-app.get('/webhook', (req, res) => {
-  const verifyToken = "citizenai123"; // Make sure this matches Meta settings
+const verifyToken = "citizenai123"; // Set this in Meta
 
+// In-memory store for WhatsApp messages
+let whatsappMessages = [];
+
+// ✅ Webhook verification (GET)
+app.get('/webhook', (req, res) => {
   const mode = req.query['hub.mode'];
   const token = req.query['hub.verify_token'];
   const challenge = req.query['hub.challenge'];
@@ -26,10 +29,31 @@ app.get('/webhook', (req, res) => {
   }
 });
 
-// WhatsApp Webhook Message Receiver (POST)
+// 📥 Receive WhatsApp messages (POST)
 app.post('/webhook', (req, res) => {
-  console.log('📩 Incoming WhatsApp message:\n', JSON.stringify(req.body, null, 2));
+  const entry = req.body?.entry?.[0];
+  const changes = entry?.changes?.[0];
+  const msg = changes?.value?.messages?.[0];
+  const contact = changes?.value?.contacts?.[0];
+
+  if (msg && contact) {
+    const incoming = {
+      from: contact.profile.name,
+      wa_id: msg.from,
+      text: msg.text?.body || '',
+      timestamp: msg.timestamp,
+    };
+
+    whatsappMessages.push(incoming);
+    console.log("📥 Stored message:", incoming);
+  }
+
   res.sendStatus(200);
+});
+
+// 🔎 Fetch stored WhatsApp messages
+app.get('/messages', (req, res) => {
+  res.json(whatsappMessages);
 });
 
 app.listen(PORT, () => {
