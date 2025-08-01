@@ -1,8 +1,7 @@
 import { useState, useEffect } from 'react';
-import { Phone, PhoneIncoming, PhoneOutgoing, Play, Clock, Moon, Sun, MessageCircle } from 'lucide-react';
+import { Phone, PhoneIncoming, PhoneOutgoing, MessageCircle } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
-import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 
 interface Call {
@@ -21,6 +20,9 @@ interface WhatsAppMessage {
   wa_id: string;
   text: string;
   timestamp: string;
+  mediaUrl?: string;
+  mimeType?: string;
+  mediaType?: string;
 }
 
 export const Dashboard = ({ customerConfig }) => {
@@ -132,9 +134,15 @@ export const Dashboard = ({ customerConfig }) => {
 
   const selectedMessages = whatsappMessages.filter((msg) => msg.wa_id === selectedWaNumber);
 
+  const getMessagesByPhoneNumber = (phoneNumber: string) => {
+    return whatsappMessages.filter(msg =>
+      phoneNumber.includes(msg.wa_id) || msg.wa_id.includes(phoneNumber)
+    );
+  };
+
   return (
     <div className="grid grid-cols-5 grid-rows-2 gap-4 p-4 h-[calc(100vh-100px)]">
-      {/* Call History (40%) */}
+      {/* Call History */}
       <Card className="col-span-2 row-span-1 overflow-hidden flex flex-col">
         <CardHeader>
           <CardTitle><Phone className="inline-block w-4 h-4 mr-2" /> Call History</CardTitle>
@@ -156,7 +164,7 @@ export const Dashboard = ({ customerConfig }) => {
         </CardContent>
       </Card>
 
-      {/* Call Details (60%) */}
+      {/* Call Details */}
       <Card className="col-span-3 row-span-1 overflow-hidden flex flex-col">
         <CardHeader>
           <CardTitle>Call Details</CardTitle>
@@ -184,6 +192,22 @@ export const Dashboard = ({ customerConfig }) => {
                   <pre className="whitespace-pre-wrap text-sm">{selectedCall.transcript}</pre>
                 </AccordionContent>
               </AccordionItem>
+              <AccordionItem value="whatsapp">
+                <AccordionTrigger>Related WhatsApp Messages</AccordionTrigger>
+                <AccordionContent>
+                  {getMessagesByPhoneNumber(selectedCall.phoneNumber).length ? (
+                    getMessagesByPhoneNumber(selectedCall.phoneNumber).map((msg, index) => (
+                      <div key={index} className="mb-2 p-2 border rounded">
+                        <div className="text-sm font-semibold">{msg.from}</div>
+                        <div className="text-sm">{msg.text}</div>
+                        <div className="text-xs text-gray-500">{formatTime(msg.timestamp)}</div>
+                      </div>
+                    ))
+                  ) : (
+                    <p className="text-muted-foreground">No WhatsApp messages from this number</p>
+                  )}
+                </AccordionContent>
+              </AccordionItem>
             </Accordion>
           ) : (
             <p className="text-muted-foreground">Select a call to view details</p>
@@ -191,42 +215,78 @@ export const Dashboard = ({ customerConfig }) => {
         </CardContent>
       </Card>
 
-      {/* WhatsApp Messages (Unknown) - 40% */}
+      {/* Incoming WhatsApp */}
       <Card className="col-span-2 row-span-1 overflow-hidden flex flex-col">
         <CardHeader>
           <CardTitle><MessageCircle className="inline-block w-4 h-4 mr-2" /> Incoming WhatsApp</CardTitle>
         </CardHeader>
         <CardContent className="overflow-y-auto flex-1">
-          {unknownWaNumbers.map((wa) => (
-            <div
-              key={wa}
-              onClick={() => setSelectedWaNumber(wa)}
-              className={`p-2 border rounded mb-2 cursor-pointer hover:bg-muted/40 ${selectedWaNumber === wa ? 'bg-muted/50' : ''}`}
-            >
-              {wa}
-            </div>
-          ))}
+          {unknownWaNumbers.map((wa) => {
+            const msg = whatsappMessages.find((m) => m.wa_id === wa);
+            return (
+              <div
+                key={wa}
+                onClick={() => setSelectedWaNumber(wa)}
+                className={`p-2 border rounded mb-2 cursor-pointer hover:bg-muted/40 ${selectedWaNumber === wa ? 'bg-muted/50' : ''}`}
+              >
+                <div className="font-medium text-sm">{msg?.from || "Unknown Name"}</div>
+                <div className="text-sm text-muted-foreground">{wa}</div>
+                <div className="text-xs text-muted-foreground truncate">{msg?.text?.slice(0, 60) || "No preview"}</div>
+              </div>
+            );
+          })}
         </CardContent>
       </Card>
 
-      {/* WhatsApp Message Details - 60% */}
+      {/* Message Details */}
       <Card className="col-span-3 row-span-1 overflow-hidden flex flex-col">
         <CardHeader>
           <CardTitle>Message Details</CardTitle>
         </CardHeader>
-        <CardContent className="overflow-y-auto flex-1">
-          {selectedMessages.length ? (
-            selectedMessages.map((msg, index) => (
-              <div key={index} className="mb-3 p-2 border rounded">
-                <div className="text-sm font-semibold">{msg.from}:</div>
-                <div className="text-sm text-muted-foreground">{msg.text}</div>
-                <div className="text-xs text-gray-400">{formatTime(msg.timestamp)}</div>
-              </div>
-            ))
-          ) : (
-            <p className="text-muted-foreground">Select a number to view messages</p>
-          )}
-        </CardContent>
+       <CardContent className="overflow-y-auto flex-1">
+  {selectedMessages.length ? (
+    selectedMessages.map((msg, index) => (
+      <div key={index} className="mb-3 p-2 border rounded">
+        <div className="text-sm font-semibold">{msg.from}:</div>
+
+        {/* Text message */}
+        {msg.text && (
+          <div className="text-sm text-muted-foreground">{msg.text}</div>
+        )}
+
+        {/* Image */}
+        {msg.mediaType === 'image' && msg.mediaUrl && (
+          <img
+            src={msg.mediaUrl}
+            alt="WhatsApp Image"
+            className="mt-2 max-w-full rounded"
+          />
+        )}
+
+        {/* Audio */}
+        {msg.mediaType === 'audio' && msg.mediaUrl && (
+          <audio controls src={msg.mediaUrl} className="mt-2 w-full" />
+        )}
+
+        {/* Other file types (optional) */}
+        {msg.mediaType === 'document' && msg.mediaUrl && (
+          <a
+            href={msg.mediaUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-blue-600 text-sm mt-2 inline-block underline"
+          >
+            Download Document
+          </a>
+        )}
+
+        <div className="text-xs text-gray-400">{formatTime(msg.timestamp)}</div>
+      </div>
+    ))
+  ) : (
+    <p className="text-muted-foreground">Select a number to view messages</p>
+  )}
+</CardContent>
       </Card>
     </div>
   );
