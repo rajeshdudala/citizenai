@@ -33,7 +33,11 @@ export const Dashboard = ({ customerConfig }) => {
   const { toast } = useToast();
 
   const formatTime = (timestamp: string) => {
-    return new Date(+timestamp * 1000).toLocaleString();
+    const parsed = parseInt(timestamp);
+    if (!isNaN(parsed)) {
+      return new Date(parsed * 1000).toLocaleString();
+    }
+    return 'Invalid Date';
   };
 
   const toggleTheme = () => {
@@ -88,9 +92,9 @@ export const Dashboard = ({ customerConfig }) => {
 
             return {
               id: conv.conversation_id,
-              direction: detailData.metadata?.phone_call?.direction || 'incoming',
+              direction: detailData.metadata?.phone_call?.direction.toLowerCase() || 'incoming',
               phoneNumber: detailData.metadata?.phone_call?.external_number || 'Unknown',
-              timestamp: new Date(detailData.metadata?.start_time_unix_secs * 1000).toISOString(),
+              timestamp: detailData.metadata?.start_time_unix_secs?.toString() || '',
               summary: detailData.analysis?.transcript_summary || 'No summary available.',
               transcript: detailData.transcript?.map(t => `${t.role}: ${t.message}`).join('\n') || 'Transcript not available.',
               actions: detailData.transcript?.filter(t => t.tool_calls?.length).map(() => 'Triggered Tool') || [],
@@ -148,19 +152,37 @@ export const Dashboard = ({ customerConfig }) => {
           <CardTitle><Phone className="inline-block w-4 h-4 mr-2" /> Call History</CardTitle>
         </CardHeader>
         <CardContent className="overflow-y-auto flex-1">
-          {calls.map((call) => (
-            <div
-              key={call.id}
-              onClick={() => setSelectedCall(call)}
-              className={`p-2 border rounded mb-2 cursor-pointer hover:bg-muted/40 ${selectedCall?.id === call.id ? 'bg-muted/50' : ''}`}
-            >
-              <div className="font-medium flex items-center gap-2">
-                {call.direction === 'incoming' ? <PhoneIncoming className="text-green-500 w-4 h-4" /> : <PhoneOutgoing className="text-blue-500 w-4 h-4" />}
-                {call.phoneNumber}
-              </div>
-              <div className="text-sm text-muted-foreground">{formatTime(call.timestamp)}</div>
-            </div>
-          ))}
+         
+         {calls.map((call) => {
+  console.log("📞 Rendering call:", call); // ✅ Add this line
+
+  return (
+    <div
+      key={call.id}
+      onClick={() => setSelectedCall(call)}
+      className={`p-2 border rounded mb-2 cursor-pointer hover:bg-muted/40 ${selectedCall?.id === call.id ? 'bg-muted/50' : ''}`}
+    >
+    <div className="font-medium flex items-center gap-2">
+  {call.direction?.toLowerCase().includes('in') ? (
+    <>
+      <PhoneIncoming className="text-green-500 w-4 h-4" />
+      <span className="text-xs font-semibold text-green-600 bg-green-100 px-2 py-0.5 rounded-full">Incoming</span>
+    </>
+  ) : (
+    <>
+      <PhoneOutgoing className="text-blue-500 w-4 h-4" />
+      <span className="text-xs font-semibold text-blue-600 bg-blue-100 px-2 py-0.5 rounded-full">Outgoing</span>
+    </>
+  )}
+  <span className="ml-2">{call.phoneNumber}</span>
+</div>
+
+
+      <div className="text-sm text-muted-foreground">{formatTime(call.timestamp)}</div>
+    </div>
+  );
+})}
+
         </CardContent>
       </Card>
 
@@ -171,7 +193,7 @@ export const Dashboard = ({ customerConfig }) => {
         </CardHeader>
         <CardContent className="overflow-y-auto flex-1">
           {selectedCall ? (
-            <Accordion type="multiple">
+            <Accordion type="multiple" defaultValue={['summary']}>
               <AccordionItem value="summary">
                 <AccordionTrigger>Summary</AccordionTrigger>
                 <AccordionContent>{selectedCall.summary}</AccordionContent>
@@ -218,7 +240,7 @@ export const Dashboard = ({ customerConfig }) => {
       {/* Incoming WhatsApp */}
       <Card className="col-span-2 row-span-1 overflow-hidden flex flex-col">
         <CardHeader>
-          <CardTitle><MessageCircle className="inline-block w-4 h-4 mr-2" /> Incoming WhatsApp</CardTitle>
+          <CardTitle><MessageCircle className="inline-block w-4 h-4 mr-2" /> WhatsApp (Twilio)</CardTitle>
         </CardHeader>
         <CardContent className="overflow-y-auto flex-1">
           {unknownWaNumbers.map((wa) => {
@@ -243,65 +265,63 @@ export const Dashboard = ({ customerConfig }) => {
         <CardHeader>
           <CardTitle>Message Details</CardTitle>
         </CardHeader>
-       <CardContent className="overflow-y-auto flex-1">
-  
-{selectedMessages.length ? (
-  selectedMessages.map((msg, index) => (
-    <div key={index} className="mb-3 p-2 border rounded space-y-1">
-      <div className="text-sm font-semibold">{msg.from}:</div>
-
-      {/* Show text if available */}
-      {msg.text && (
-        <div className="text-sm text-muted-foreground whitespace-pre-wrap">
-          {msg.text}
-        </div>
-      )}
-
-      {/* Show media if applicable */}
-      {msg.mediaType && msg.mediaId && (
-        <>
-          {msg.mediaType === 'image' && (
-            <img
-              src={`https://citizenai-whatsapp.onrender.com/media/${msg.mediaId}`}
-              alt="WhatsApp image"
-              className="rounded max-w-full mt-2"
-            />
+        <CardContent className="overflow-y-auto flex-1">
+          {selectedMessages.length ? (
+            <Accordion type="multiple">
+              {selectedMessages.map((msg, index) => (
+                <AccordionItem key={index} value={`msg-${index}`}>
+                  <AccordionTrigger>
+                    {msg.from || "Unknown"} — {formatTime(msg.timestamp)}
+                  </AccordionTrigger>
+                  <AccordionContent>
+                    {msg.text && (
+                      <div className="text-sm text-muted-foreground whitespace-pre-wrap mb-2">
+                        {msg.text}
+                      </div>
+                    )}
+                    {msg.mediaType && msg.mediaId && (
+                      <>
+                        {msg.mediaType === 'image' && (
+                          <img
+                            src={`https://citizenai-whatsapp.onrender.com/media/${msg.mediaId}`}
+                            alt="WhatsApp image"
+                            className="rounded max-w-full mt-2"
+                          />
+                        )}
+                        {msg.mediaType === 'audio' && (
+                          <audio
+                            controls
+                            src={`https://citizenai-whatsapp.onrender.com/media/${msg.mediaId}`}
+                            className="w-full mt-2"
+                          />
+                        )}
+                        {msg.mediaType === 'video' && (
+                          <video
+                            controls
+                            src={`https://citizenai-whatsapp.onrender.com/media/${msg.mediaId}`}
+                            className="w-full mt-2"
+                          />
+                        )}
+                        {msg.mediaType === 'document' && (
+                          <a
+                            href={`https://citizenai-whatsapp.onrender.com/media/${msg.mediaId}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-sm text-blue-600 underline mt-2 block"
+                          >
+                            Download document
+                          </a>
+                        )}
+                      </>
+                    )}
+                  </AccordionContent>
+                </AccordionItem>
+              ))}
+            </Accordion>
+          ) : (
+            <p className="text-muted-foreground">Select a number to view messages</p>
           )}
-          {msg.mediaType === 'audio' && (
-            <audio
-              controls
-              src={`https://citizenai-whatsapp.onrender.com/media/${msg.mediaId}`}
-              className="w-full mt-2"
-            />
-          )}
-          {msg.mediaType === 'video' && (
-            <video
-              controls
-              src={`https://citizenai-whatsapp.onrender.com/media/${msg.mediaId}`}
-              className="w-full mt-2"
-            />
-          )}
-          {msg.mediaType === 'document' && (
-            <a
-              href={`https://citizenai-whatsapp.onrender.com/media/${msg.mediaId}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-sm text-blue-600 underline mt-2 block"
-            >
-              Download document
-            </a>
-          )}
-        </>
-      )}
-
-      <div className="text-xs text-gray-400">{formatTime(msg.timestamp)}</div>
-    </div>
-  ))
-) : (
-  <p className="text-muted-foreground">Select a number to view messages</p>
-)}
-
-</CardContent>
+        </CardContent>
       </Card>
     </div>
   );
