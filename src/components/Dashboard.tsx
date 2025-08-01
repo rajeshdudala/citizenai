@@ -20,10 +20,9 @@ interface WhatsAppMessage {
   wa_id: string;
   text: string;
   timestamp: string;
-  mediaUrl?: string;
-  mimeType?: string;
   mediaType?: string;
   mediaId?: string;
+  mimeType?: string;
 }
 
 export const Dashboard = ({ customerConfig }) => {
@@ -263,7 +262,7 @@ export const Dashboard = ({ customerConfig }) => {
         <>
           {msg.mediaType === 'image' && (
             <img
-              src={`https://citizenai-whatsapp.onrender.com:3001/media/${msg.mediaId}`}
+              src={`https://citizenai-whatsapp.onrender.com/media/${msg.mediaId}`}
               alt="WhatsApp image"
               className="rounded max-w-full mt-2"
             />
@@ -271,20 +270,20 @@ export const Dashboard = ({ customerConfig }) => {
           {msg.mediaType === 'audio' && (
             <audio
               controls
-              src={`https://citizenai-whatsapp.onrender.com:3001/media/${msg.mediaId}`}
+              src={`https://citizenai-whatsapp.onrender.com/media/${msg.mediaId}`}
               className="w-full mt-2"
             />
           )}
           {msg.mediaType === 'video' && (
             <video
               controls
-              src={`https://citizenai-whatsapp.onrender.com:3001/media/${msg.mediaId}`}
+              src={`https://citizenai-whatsapp.onrender.com/media/${msg.mediaId}`}
               className="w-full mt-2"
             />
           )}
           {msg.mediaType === 'document' && (
             <a
-              href={`https://citizenai-whatsapp.onrender.com:3001/media/${msg.mediaId}`}
+              href={`https://citizenai-whatsapp.onrender.com/media/${msg.mediaId}`}
               target="_blank"
               rel="noopener noreferrer"
               className="text-sm text-blue-600 underline mt-2 block"
