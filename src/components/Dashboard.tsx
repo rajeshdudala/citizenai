@@ -23,6 +23,7 @@ interface WhatsAppMessage {
   mediaUrl?: string;
   mimeType?: string;
   mediaType?: string;
+  mediaId?: string;
 }
 
 export const Dashboard = ({ customerConfig }) => {
@@ -244,48 +245,63 @@ export const Dashboard = ({ customerConfig }) => {
           <CardTitle>Message Details</CardTitle>
         </CardHeader>
        <CardContent className="overflow-y-auto flex-1">
-  {selectedMessages.length ? (
-    selectedMessages.map((msg, index) => (
-      <div key={index} className="mb-3 p-2 border rounded">
-        <div className="text-sm font-semibold">{msg.from}:</div>
+  
+{selectedMessages.length ? (
+  selectedMessages.map((msg, index) => (
+    <div key={index} className="mb-3 p-2 border rounded space-y-1">
+      <div className="text-sm font-semibold">{msg.from}:</div>
 
-        {/* Text message */}
-        {msg.text && (
-          <div className="text-sm text-muted-foreground">{msg.text}</div>
-        )}
+      {/* Show text if available */}
+      {msg.text && (
+        <div className="text-sm text-muted-foreground whitespace-pre-wrap">
+          {msg.text}
+        </div>
+      )}
 
-        {/* Image */}
-        {msg.mediaType === 'image' && msg.mediaUrl && (
-          <img
-            src={msg.mediaUrl}
-            alt="WhatsApp Image"
-            className="mt-2 max-w-full rounded"
-          />
-        )}
+      {/* Show media if applicable */}
+      {msg.mediaType && msg.mediaId && (
+        <>
+          {msg.mediaType === 'image' && (
+            <img
+              src={`https://citizenai-whatsapp.onrender.com:3001/media/${msg.mediaId}`}
+              alt="WhatsApp image"
+              className="rounded max-w-full mt-2"
+            />
+          )}
+          {msg.mediaType === 'audio' && (
+            <audio
+              controls
+              src={`https://citizenai-whatsapp.onrender.com:3001/media/${msg.mediaId}`}
+              className="w-full mt-2"
+            />
+          )}
+          {msg.mediaType === 'video' && (
+            <video
+              controls
+              src={`https://citizenai-whatsapp.onrender.com:3001/media/${msg.mediaId}`}
+              className="w-full mt-2"
+            />
+          )}
+          {msg.mediaType === 'document' && (
+            <a
+              href={`https://citizenai-whatsapp.onrender.com:3001/media/${msg.mediaId}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-sm text-blue-600 underline mt-2 block"
+            >
+              Download document
+            </a>
+          )}
+        </>
+      )}
 
-        {/* Audio */}
-        {msg.mediaType === 'audio' && msg.mediaUrl && (
-          <audio controls src={msg.mediaUrl} className="mt-2 w-full" />
-        )}
+      <div className="text-xs text-gray-400">{formatTime(msg.timestamp)}</div>
+    </div>
+  ))
+) : (
+  <p className="text-muted-foreground">Select a number to view messages</p>
+)}
 
-        {/* Other file types (optional) */}
-        {msg.mediaType === 'document' && msg.mediaUrl && (
-          <a
-            href={msg.mediaUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-blue-600 text-sm mt-2 inline-block underline"
-          >
-            Download Document
-          </a>
-        )}
-
-        <div className="text-xs text-gray-400">{formatTime(msg.timestamp)}</div>
-      </div>
-    ))
-  ) : (
-    <p className="text-muted-foreground">Select a number to view messages</p>
-  )}
 </CardContent>
       </Card>
     </div>
