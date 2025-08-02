@@ -1,4 +1,3 @@
-// server.ts (TypeScript with Supabase)
 import express from 'express';
 import bodyParser from 'body-parser';
 import cors from 'cors';
@@ -6,8 +5,7 @@ import fetch from 'node-fetch';
 import dotenv from 'dotenv';
 import path from 'path';
 import { fileURLToPath } from 'url';
-
-import { supabase } from './src/integrations/supabase/client.ts';
+import { supabase } from './src/integrations/supabase/client.js';
 dotenv.config();
 
 const app = express();
@@ -19,8 +17,8 @@ const __dirname = path.dirname(__filename);
 app.use(cors());
 app.use(bodyParser.json());
 
-const verifyToken = 'citizenai123';
-const whatsappToken = process.env.WHATSAPP_TOKEN || '';
+const verifyToken = "citizenai123";
+const whatsappToken = process.env.WHATSAPP_TOKEN || "";
 
 // ✅ Webhook verification
 app.get('/webhook', (req, res) => {
@@ -29,7 +27,7 @@ app.get('/webhook', (req, res) => {
   const challenge = req.query['hub.challenge'];
 
   if (mode === 'subscribe' && token === verifyToken) {
-    console.log('✅ Webhook verified');
+    console.log("✅ Webhook verified");
     res.status(200).send(challenge);
   } else {
     res.sendStatus(403);
@@ -57,52 +55,49 @@ app.post('/webhook', async (req, res) => {
       from: contact.profile?.name || 'Unknown',
       wa_id: msg.from,
       text: msg.text?.body || '',
-      timestamp: msg.timestamp,
+      timestamp: parseInt(msg.timestamp),
       media_type: mediaId ? mediaType : null,
       media_id: mediaId || null,
       mime_type: mimeType || null,
     };
 
-    console.log('📥 Incoming WhatsApp message:', JSON.stringify(incoming, null, 2));
-
-    // ⬇️ Store to Supabase
-    const { data, error, status, statusText } = await supabase
-      .from('whatsapp_messages')
-      .insert([incoming]);
-
-    if (error) {
-      console.error('❌ Supabase insert error:');
-      console.error('Status:', status, statusText);
-      console.error('Details:', error.details);
-      console.error('Message:', error.message);
-      console.error('Hint:', error.hint);
-    } else {
-      console.log('✅ Stored in Supabase:', data);
+    try {
+      const { error } = await supabase.from('whatsapp_messages').insert([incoming]);
+      if (error) {
+        console.error("❌ Supabase insert error:", error);
+      } else {
+        console.log("✅ Message saved to Supabase:", incoming);
+      }
+    } catch (err) {
+      console.error("❌ Failed to insert into Supabase:", err);
     }
-  } else {
-    console.warn('⚠️ Webhook triggered but message or contact is missing');
   }
 
   res.sendStatus(200);
 });
 
-// 🔎 Fetch messages from Supabase
+// 🔎 Fetch WhatsApp messages from Supabase
 app.get('/messages', async (req, res) => {
-  const { data, error } = await supabase
-    .from('whatsapp_messages')
-    .select('*')
-    .order('timestamp', { ascending: false })
-    .limit(100);
+  try {
+    const { data, error } = await supabase
+      .from('whatsapp_messages')
+      .select('*')
+      .order('timestamp', { ascending: false })
+      .limit(50);
 
-  if (error) {
-    console.error('❌ Error fetching messages from Supabase:', error.message);
-    return res.status(500).json({ error: 'Failed to load messages' });
+    if (error) {
+      console.error("❌ Supabase fetch error:", error);
+      return res.status(500).json({ error: 'Failed to fetch messages' });
+    }
+
+    res.json(data);
+  } catch (err) {
+    console.error("❌ Unexpected error fetching messages:", err);
+    res.sendStatus(500);
   }
-
-  res.json(data);
 });
 
-// 📦 Proxy media
+// 📦 Proxy media by ID
 app.get('/media/:mediaId', async (req, res) => {
   const mediaId = req.params.mediaId;
 
@@ -116,7 +111,7 @@ app.get('/media/:mediaId', async (req, res) => {
     const meta = await metaRes.json();
 
     if (!meta.url) {
-      console.error('⚠️ Media data missing URL or mime_type', meta);
+      console.error("⚠️ Media data missing URL", meta);
       return res.status(400).json({ error: 'Media URL not found' });
     }
 
@@ -126,7 +121,7 @@ app.get('/media/:mediaId', async (req, res) => {
       },
     });
 
-    res.setHeader('Content-Type', mediaRes.headers.get('content-type') || 'application/octet-stream');
+    res.setHeader('Content-Type', mediaRes.headers.get('content-type'));
     mediaRes.body.pipe(res);
   } catch (err) {
     console.error('❌ Failed to proxy media:', err);
@@ -135,5 +130,5 @@ app.get('/media/:mediaId', async (req, res) => {
 });
 
 app.listen(PORT, () => {
-  console.log(`🚀 Server running at http://localhost:${PORT}`);
+  console.log(`🚀 Express server running at http://localhost:${PORT}`);
 });
