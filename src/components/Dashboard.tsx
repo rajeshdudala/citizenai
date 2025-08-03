@@ -145,49 +145,41 @@ export const Dashboard = ({ customerConfig }) => {
   };
 
   return (
-    <div className="grid grid-cols-5 grid-rows-2 gap-4 p-4 h-[calc(100vh-100px)]">
+    <div className="grid grid-cols-1 md:grid-cols-5 grid-rows-none md:grid-rows-2 gap-4 p-4 auto-rows-max md:h-[calc(100vh-100px)]">
       {/* Call History */}
-      <Card className="col-span-2 row-span-1 overflow-hidden flex flex-col">
+      <Card className="col-span-1 md:col-span-2 row-span-1 overflow-hidden flex flex-col">
         <CardHeader>
           <CardTitle><Phone className="inline-block w-4 h-4 mr-2" /> Call History</CardTitle>
         </CardHeader>
         <CardContent className="overflow-y-auto flex-1">
-         
-         {calls.map((call) => {
-  console.log("📞 Rendering call:", call); // ✅ Add this line
-
-  return (
-    <div
-      key={call.id}
-      onClick={() => setSelectedCall(call)}
-      className={`p-2 border rounded mb-2 cursor-pointer hover:bg-muted/40 ${selectedCall?.id === call.id ? 'bg-muted/50' : ''}`}
-    >
-    <div className="font-medium flex items-center gap-2">
-  {call.direction?.toLowerCase().includes('in') ? (
-    <>
-      <PhoneIncoming className="text-green-500 w-4 h-4" />
-      <span className="text-xs font-semibold text-green-600 bg-green-100 px-2 py-0.5 rounded-full">Incoming</span>
-    </>
-  ) : (
-    <>
-      <PhoneOutgoing className="text-blue-500 w-4 h-4" />
-      <span className="text-xs font-semibold text-blue-600 bg-blue-100 px-2 py-0.5 rounded-full">Outgoing</span>
-    </>
-  )}
-  <span className="ml-2">{call.phoneNumber}</span>
-</div>
-
-
-      <div className="text-sm text-muted-foreground">{formatTime(call.timestamp)}</div>
-    </div>
-  );
-})}
-
+          {calls.map((call) => (
+            <div
+              key={call.id}
+              onClick={() => setSelectedCall(call)}
+              className={`p-2 border rounded mb-2 cursor-pointer hover:bg-muted/40 ${selectedCall?.id === call.id ? 'bg-muted/50' : ''}`}
+            >
+              <div className="font-medium flex items-center gap-2">
+                {call.direction?.toLowerCase().includes('in') ? (
+                  <>
+                    <PhoneIncoming className="text-green-500 w-4 h-4" />
+                    <span className="text-xs font-semibold text-green-600 bg-green-100 px-2 py-0.5 rounded-full">Incoming</span>
+                  </>
+                ) : (
+                  <>
+                    <PhoneOutgoing className="text-blue-500 w-4 h-4" />
+                    <span className="text-xs font-semibold text-blue-600 bg-blue-100 px-2 py-0.5 rounded-full">Outgoing</span>
+                  </>
+                )}
+                <span className="ml-2">{call.phoneNumber}</span>
+              </div>
+              <div className="text-sm text-muted-foreground">{formatTime(call.timestamp)}</div>
+            </div>
+          ))}
         </CardContent>
       </Card>
 
       {/* Call Details */}
-      <Card className="col-span-3 row-span-1 overflow-hidden flex flex-col">
+      <Card className="col-span-1 md:col-span-3 row-span-1 overflow-hidden flex flex-col">
         <CardHeader>
           <CardTitle>Call Details</CardTitle>
         </CardHeader>
@@ -238,7 +230,7 @@ export const Dashboard = ({ customerConfig }) => {
       </Card>
 
       {/* Incoming WhatsApp */}
-      <Card className="col-span-2 row-span-1 overflow-hidden flex flex-col">
+      <Card className="col-span-1 md:col-span-2 row-span-1 overflow-hidden flex flex-col">
         <CardHeader>
           <CardTitle><MessageCircle className="inline-block w-4 h-4 mr-2" /> WhatsApp (Twilio)</CardTitle>
         </CardHeader>
@@ -261,7 +253,7 @@ export const Dashboard = ({ customerConfig }) => {
       </Card>
 
       {/* Message Details */}
-      <Card className="col-span-3 row-span-1 overflow-hidden flex flex-col">
+      <Card className="col-span-1 md:col-span-3 row-span-1 overflow-hidden flex flex-col">
         <CardHeader>
           <CardTitle>Message Details</CardTitle>
         </CardHeader>

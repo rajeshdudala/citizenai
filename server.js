@@ -52,7 +52,7 @@ app.post('/webhook', async (req, res) => {
     }
 
     const incoming = {
-      from: contact.profile?.name || 'Unknown',
+      sender: contact.profile?.name || 'Unknown',
       wa_id: msg.from,
       text: msg.text?.body || '',
       timestamp: parseInt(msg.timestamp),
