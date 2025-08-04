@@ -1,0 +1,91 @@
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Phone, MessageSquare, Clock } from 'lucide-react';
+import { useDashboardData } from '@/hooks/use-dashboard-data';
+
+interface MetricCardProps {
+  title: string;
+  value: string;
+  icon: React.ComponentType<{ className?: string }>;
+}
+
+const MetricCard = ({ title, value, icon: Icon }: MetricCardProps) => (
+  <Card>
+    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+      <CardTitle className="text-sm font-medium">{title}</CardTitle>
+      <Icon className="h-4 w-4 text-muted-foreground" />
+    </CardHeader>
+    <CardContent>
+      <div className="text-2xl font-bold">{value}</div>
+    </CardContent>
+  </Card>
+);
+
+interface AnalyticsProps {
+  customerConfig: {
+    elevenlabs_api_key: string;
+  };
+}
+
+export const Analytics = ({ customerConfig }: AnalyticsProps) => {
+  const { calls = [], whatsappMessages = [] } = useDashboardData(customerConfig); // fallback to empty arrays
+
+  const totalCalls = calls.length;
+
+  const totalCallDurationSecs = calls.reduce((sum, call) => {
+    const duration = (call as any).duration_secs ?? 0;
+    return sum + duration;
+  }, 0);
+
+  const averageCallDurationSecs = totalCalls ? totalCallDurationSecs / totalCalls : 0;
+
+  const formatDuration = (secs: number) => {
+    const minutes = Math.floor(secs / 60);
+    const seconds = Math.floor(secs % 60);
+    return `${minutes}m ${seconds}s`;
+  };
+
+  const metrics = [
+    {
+      title: 'Total Calls',
+      value: `${totalCalls}`,
+      icon: Phone,
+    },
+    {
+      title: 'Total Call Duration',
+      value: formatDuration(totalCallDurationSecs),
+      icon: Clock,
+    },
+    {
+      title: 'Average Call Duration',
+      value: formatDuration(averageCallDurationSecs),
+      icon: Clock,
+    },
+    {
+      title: 'WhatsApp Messages',
+      value: `${whatsappMessages.length}`,
+      icon: MessageSquare,
+    },
+  ];
+
+  return (
+    <div className="space-y-6">
+      <div>
+        <h2 className="text-2xl font-bold mb-2">Analytics Overview</h2>
+        <p className="text-muted-foreground">
+          Track your call performance and WhatsApp engagement.
+        </p>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        {metrics.map((metric, index) => (
+          <MetricCard
+            key={index}
+            title={metric.title}
+            value={metric.value}
+            icon={metric.icon}
+          />
+        ))}
+      </div>
+    </div>
+  );
+};

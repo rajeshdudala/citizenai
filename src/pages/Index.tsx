@@ -8,7 +8,7 @@
   import { Navigation } from "@/components/Navigation";
   import { Dashboard } from "@/components/Dashboard";
   import { Settings } from "@/components/Settings";
-  import { Analytics } from "@/components/Analytics";
+  import { Leads } from "@/components/Leads";
 
   // Define new type to hold customer config
   interface CustomerConfig {
@@ -22,7 +22,7 @@
   }
 
   type AuthStep = 'landing' | 'email' | 'verification' | 'loggedIn' | 'contact';
-  type Section = 'dashboard' | 'settings' | 'analytics';
+  type Section = 'dashboard' | 'settings' | 'leads';
 
   const Index = () => {
     const [contactName, setContactName] = useState('');
@@ -429,7 +429,7 @@ const handleLoginSubmit = async () => {
         <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
           {currentSection === 'dashboard' && <Dashboard customerConfig={customerConfig} />}
           {currentSection === 'settings' && <Settings />}
-          {currentSection === 'analytics' && <Analytics />}
+          {currentSection === 'leads' && <Leads />}
         </main>
       </div>
     );
